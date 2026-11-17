@@ -373,6 +373,30 @@ class LLMService:
             LLMResponseError: if no valid output is produced.
             (plus every error that ``generate`` can raise)
         """
+        return self._generate_structured(request, output_model)[0]
+
+    def generate_structured_with_response(
+        self, request: LLMRequest, model_class: type[T]
+    ) -> tuple[T, LLMResponse]:
+        """Like ``generate_structured``, but also return the ``LLMResponse``.
+
+        Same prompt, validation, re-asks, retries, time budget and exceptions
+        as ``generate_structured``. The returned ``LLMResponse`` belongs to the
+        generation whose output was accepted (validated, or returned as the
+        opt-in not-covered fallback); its ``latency_ms``, ``attempts`` and
+        ``usage`` describe that call only, not earlier rejected re-asks.
+        Metadata is passed through as ``generate`` reports it: token counts the
+        provider did not report are ``0`` (the ``TokenUsage`` convention), and a
+        missing model name falls back to the configured ``LLM_MODEL``.
+
+        Returns:
+            ``(validated_instance, response)``.
+        """
+        return self._generate_structured(request, model_class)
+
+    def _generate_structured(
+        self, request: LLMRequest, output_model: type[T]
+    ) -> tuple[T, LLMResponse]:
         schema = json.dumps(output_model.model_json_schema(), ensure_ascii=False)
         system_prompt = (
             f"{request.system_prompt}\n\nRespond with a single JSON object only, "
@@ -393,9 +417,9 @@ class LLMService:
             response = self._generate(structured_request, deadline)
             content = _strip_code_fence(response.content)
             if is_not_in_material(content):
-                return self._not_in_material_result(content, output_model)
+                return self._not_in_material_result(content, output_model), response
             try:
-                return output_model.model_validate_json(content)
+                return output_model.model_validate_json(content), response
             except ValidationError as exc:
                 last_error = exc
                 logger.warning(
