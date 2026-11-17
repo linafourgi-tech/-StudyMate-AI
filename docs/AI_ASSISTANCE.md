@@ -109,6 +109,49 @@
    - G3 (metrics from `generate_structured`) and G5 (conversation history)
      were not implemented.
 
+8. **Topic and lecture integration (Step 1), at the student's request (2026-11-17).**
+   - Did a read-only integration review of `main` after Role 5 was merged.
+     It found that Role 5 needs topics and that no role produced them.
+   - Added optional `topic` and `lecture_id` to `LectureChunk` (blank values
+     rejected), plus `lecture_topics` and `chunks_for_topics` in
+     `src/prompts.py`. They use the same topic-matching rule as Role 5.
+   - The prompt header shows `topic=` only when a chunk has a topic. Prompts
+     for chunks without topics were checked to be byte-for-byte identical to
+     `main`.
+   - Added 38 tests in `tests/test_topics.py`. They include a contract check
+     through Role 5's public API; Role 5 code was not modified.
+
+9. **Structured output metrics (Step 2, gap G3), at the student's request (2026-11-17).**
+   - Added `LLMService.generate_structured_with_response(request, model_class)`,
+     which returns `(validated instance, LLMResponse)`. The response is the one
+     for the accepted generation, not an earlier rejected re-ask.
+   - `generate_structured` and the new method now share one internal loop, so
+     prompt, validation, re-asks, retries and exceptions are identical;
+     `generate_structured` still returns only the model. Metadata is passed
+     through unchanged, using the existing conventions (unreported token
+     counts are 0; a missing model name falls back to `LLM_MODEL`). No new
+     values are estimated.
+   - Added 20 tests in `tests/test_structured_metrics.py`.
+
+10. **Integration contracts, documentation and offline tests (Step 3), at the student's request (2026-11-17).**
+    - Wrote `docs/INTEGRATION.md`. It covers the interfaces between Roles 1–6
+      and marks each as **implemented** (Role 1 and Role 5 code) or
+      **proposed** (Role 2 chunk producer, Role 3 quiz module and schema,
+      Role 4 grading, Role 6 app), which teammates still have to build.
+    - Added 18 tests in `tests/test_integration_contracts.py`:
+      - The full quiz loop over two quizzes, through Role 1's and Role 5's
+        public APIs.
+      - Invalid topics, lectures without topics, and the not-covered case.
+      - Concurrency: 16 simultaneous requests on one `LLMService`, with a
+        thread-safe mocked OpenAI client and with the real Gemini SDK client
+        over an in-memory transport.
+    - The LLM replies are **mocked**, the quiz schema is **test-local**, and
+      grading is **simulated**. No production quiz generator or grader was
+      written, and Role 5 code was not modified.
+    - Before writing the tests, Role 5's actual behaviour was checked. That
+      surfaced two contract details now documented: a result without `topic`
+      raises `KeyError`, and unknown topics are accepted silently.
+
 ## What the student did
 - Defined the requirements, scope and constraints (role boundaries, security, Git rules).
 - Requested the audit and decided which findings to fix.
@@ -121,7 +164,8 @@
   code, and note any changes made afterwards.
 
 ## Verification
-- Automated tests: **235 passed** (170 earlier + 65 for G1/G2/G4; offline: mocks plus the real SDKs over
+- Automated tests: **392 passed** on the full project (316 on `main` after the Role 5 merge,
+  plus 38 for Step 1 topics, 20 for Step 2 metrics and 18 for Step 3 contracts). Earlier: 170, then 235 with G1/G2/G4 (offline: mocks plus the real SDKs over
   in-memory transports), re-run on 2026-11-17 with outbound socket connections
   blocked. Python 3.12.10, pytest 9.2.0, openai 3.51.0, google-genai 3.3.0.
   `pip check`: no broken requirements.

@@ -71,6 +71,10 @@ root (next to `src/`), whatever the current working directory.
 
 ## Integration interface for teammates
 
+Cross-role data contracts (PDF processing → backend → quiz → grading →
+personalization → frontend), with what is implemented and what is still
+proposed, are in [`docs/INTEGRATION.md`](INTEGRATION.md).
+
 ```python
 from src.llm_service import get_llm_service, LLMServiceError, LLMTransientError
 from src.prompts import build_grounded_request
@@ -97,6 +101,68 @@ class MyOutput(BaseModel):
 request = build_grounded_request("...", chunks, "...", response_format="json")
 result = get_llm_service().generate_structured(request, MyOutput)   # -> MyOutput
 ```
+
+### Metrics for structured output (benchmarking)
+
+```python
+quiz, response = get_llm_service().generate_structured_with_response(request, Quiz)
+response.latency_ms, response.attempts, response.usage.total_tokens, response.model
+```
+
+- Same prompt, validation, re-ask, retries, time budget and exceptions as
+  `generate_structured`, which still returns only the model instance.
+- The `LLMResponse` is the one for the generation that was **accepted**
+  (validated, or returned as the opt-in not-covered fallback):
+
+  | Field | Meaning |
+  |---|---|
+  | `content` | Raw model output of that generation (before the code fence was stripped for parsing) |
+  | `model` | Model version reported by the provider; **the configured `LLM_MODEL` if the provider reported none** |
+  | `finish_reason` | `stop` / `length` / …, as normalised by the backend; `None` if not reported |
+  | `usage` | `prompt_tokens`, `completion_tokens` (Gemini: output + thinking), `total_tokens`; **`0` for any count the provider did not report** |
+  | `latency_ms` | Duration of the successful HTTP attempt only, excluding backoff waits and earlier attempts |
+  | `attempts` | HTTP attempts for that generation, including transient retries |
+
+- **Not included:** rejected re-asks. If the first reply failed validation and
+  the second was accepted, the response describes the second call only. Its
+  tokens and latency don't include the first call, and `attempts` doesn't
+  count it. So a benchmark sum of tokens undercounts calls that needed a
+  re-ask. The re-ask is logged as a warning ("Structured output failed
+  validation…").
+- A reported `0` and an unreported count look the same (the existing
+  `TokenUsage` convention).
+
+### Topics and lectures (link to personalization)
+
+```python
+from src.personalization import PersonalizationEngine, ProfileStore
+from src.prompts import chunks_for_topics, lecture_topics, prepare_grounded_request
+from src.schemas import LectureChunk
+
+chunks = [
+    LectureChunk(chunk_id="lec3-p4-c1", text="...", source="lecture3.pdf", page=4,
+                 topic="Trees", lecture_id="lec3"),
+    LectureChunk(chunk_id="lec3-p5-c1", text="...", page=5, topic="Sorting", lecture_id="lec3"),
+]
+
+topics = lecture_topics(chunks)                      # ["Trees", "Sorting"]
+plan = PersonalizationEngine().plan_next_quiz(profile, available_topics=topics)
+quiz_chunks = chunks_for_topics(chunks, plan.topic_allocation)   # chunks for the planned topics
+prepared = prepare_grounded_request("Write the quiz ...", quiz_chunks, "...", response_format="json")
+```
+
+- Topics are matched with the **same rule as Role 5**: case-insensitive,
+  ignoring repeated and surrounding whitespace. So `"Trees"`, `" trees "`
+  and `"TREES"` are one topic in lecture chunks, quiz plans and student
+  profiles alike. `"Tree"` and `"Trees"` remain different topics.
+- The chunk header in the prompt shows `topic=...` only when a chunk has a
+  topic, e.g. `[lec3-p4-c1] source=lecture3.pdf page=4 topic=Trees`. It's
+  cleaned like `source` (one line, no brackets, at most 200 characters).
+  **Chunks without a topic produce exactly the same prompt as before.**
+  `lecture_id` is not shown in the prompt.
+- Chunks without a topic are skipped by `lecture_topics` and never returned by
+  `chunks_for_topics`. They can still be passed directly to
+  `build_grounded_request` / `prepare_grounded_request`.
 
 ### Not-covered answers, included chunks and citations
 
@@ -155,13 +221,16 @@ except LLMNotInMaterialError:
 
 | Interface | Purpose |
 |---|---|
-| `LectureChunk(chunk_id, text, source?, page?)` | Input format expected from PDF processing. Use IDs made of `A-Z a-z 0-9 _ . : -`; any other character is replaced with `_` in the prompt (and therefore in citations). |
+| `LectureChunk(chunk_id, text, source?, page?, topic?, lecture_id?)` | Input format expected from PDF processing. Use IDs made of `A-Z a-z 0-9 _ . : -`; any other character is replaced with `_` in the prompt (and therefore in citations). `topic` and `lecture_id` are optional; if given, they must not be blank. |
+| `lecture_topics(chunks)` | Unique topics in order of first appearance. Case and whitespace variants count as one; the first spelling is returned with whitespace tidied. Use as `available_topics` for Role 5's `plan_next_quiz`. |
+| `chunks_for_topics(chunks, topics)` | Chunks whose topic matches (case- and whitespace-insensitive), in original order. `topics` may be one name, a list, or a quiz plan's `topic_allocation` dict. |
 | `LLMRequest(system_prompt, user_prompt, temperature?, max_output_tokens?, response_format)` | One LLM call |
 | `LLMResponse(content, model, finish_reason, usage, latency_ms, attempts)` | Validated result plus metrics (for benchmarking) |
 | `get_llm_service()` | Shared, environment-configured service instance (configuration errors are not cached) |
 | `LLMService.generate(request)` | Returns `LLMResponse` |
 | `LLMService.generate_text(system, user, **opts)` | Returns `str` |
 | `LLMService.generate_structured(request, Model)` | Returns validated `Model` instance |
+| `LLMService.generate_structured_with_response(request, model_class)` | Returns `(validated instance, LLMResponse)`: same behaviour as `generate_structured`, plus metrics of the accepted generation (for benchmarking) |
 | `build_grounded_request(task, chunks, user_input, ...)` | Lecture-grounded `LLMRequest` |
 | `prepare_grounded_request(task, chunks, user_input, ..., on_overflow="drop"\|"error")` | Same request, plus the `LectureContext` showing which chunks were sent (`GroundedRequest`) |
 | `format_lecture_context(chunks, max_chars)` | Delimited, sanitised lecture block |

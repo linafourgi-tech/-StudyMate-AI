@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from typing import Literal
 
 from .schemas import GroundedRequest, LectureChunk, LectureContext, LLMRequest
@@ -48,6 +48,57 @@ def _safe_metadata(value: str) -> str:
     """Single line, no brackets, no delimiters, bounded length."""
     value = _WHITESPACE.sub(" ", value).replace("[", "(").replace("]", ")")
     return neutralize_delimiters(value).strip()[:_MAX_SOURCE_CHARS]
+
+def _clean_topic(topic: str) -> str:
+    """Display form of a topic: surrounding whitespace removed, inner runs collapsed."""
+    return " ".join(topic.split())
+
+
+def _topic_key(topic: str) -> str:
+    """Matching key: case-insensitive, whitespace-insensitive.
+
+    Same rule as the personalization engine (Role 5), so topics from lecture
+    chunks and topics in quiz plans and student profiles line up.
+    """
+    return _clean_topic(topic).casefold()
+
+
+def lecture_topics(chunks: Iterable[LectureChunk]) -> list[str]:
+    """Unique topics of ``chunks`` in order of first appearance.
+
+    Topics that differ only in case or whitespace count as one; the first
+    spelling seen is returned (case kept, whitespace tidied). Chunks without a
+    topic are skipped. Suitable as ``available_topics`` for
+    ``PersonalizationEngine.plan_next_quiz``.
+    """
+    seen: set[str] = set()
+    topics: list[str] = []
+    for chunk in chunks:
+        if chunk.topic is None:
+            continue
+        key = _topic_key(chunk.topic)
+        if key not in seen:
+            seen.add(key)
+            topics.append(_clean_topic(chunk.topic))
+    return topics
+
+
+def chunks_for_topics(
+    chunks: Iterable[LectureChunk], topics: str | Iterable[str]
+) -> list[LectureChunk]:
+    """Chunks whose topic is one of ``topics``, in their original order.
+
+    Matching ignores case and repeated or surrounding whitespace. ``topics``
+    may be one topic name, any iterable of names, or a quiz plan's
+    ``topic_allocation`` dict (its keys are used). Chunks without a topic are
+    never returned; blank requested topics are ignored. The chunks themselves
+    are returned unchanged.
+    """
+    if isinstance(topics, str):
+        topics = [topics]
+    wanted = {_topic_key(t) for t in topics if isinstance(t, str) and t.strip()}
+    return [c for c in chunks if c.topic is not None and _topic_key(c.topic) in wanted]
+
 
 #: Default cap on lecture characters placed in one prompt (keeps cost/latency bounded).
 DEFAULT_MAX_CONTEXT_CHARS = 12_000
@@ -141,6 +192,9 @@ def _render_context(
             header += f" source={source}"
         if chunk.page is not None:
             header += f" page={chunk.page}"
+        topic = _safe_metadata(chunk.topic) if chunk.topic else ""
+        if topic:  # only when present: untagged chunks render exactly as before
+            header += f" topic={topic}"
         block = f"{header}\n{neutralize_delimiters(chunk.text.strip())}"
 
         if used + len(block) > max_chars:

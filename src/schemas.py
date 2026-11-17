@@ -27,12 +27,25 @@ class LectureChunk(BaseModel):
     text: str = Field(min_length=1, description="Raw lecture text.")
     source: str | None = Field(default=None, description="e.g. file name of the lecture PDF.")
     page: int | None = Field(default=None, ge=1)
+    topic: str | None = Field(
+        default=None,
+        description="Topic this chunk belongs to (e.g. 'Trees'); used for topic-based "
+                    "quiz planning. Matched case-insensitively, ignoring extra whitespace.",
+    )
+    lecture_id: str | None = Field(default=None, description="ID of the lecture this chunk is from.")
 
     @field_validator("text")
     @classmethod
     def _text_not_blank(cls, value: str) -> str:
         if not value.strip():
             raise ValueError("chunk text must not be blank")
+        return value
+
+    @field_validator("topic", "lecture_id")
+    @classmethod
+    def _optional_not_blank(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("must not be blank when provided (omit it or use None)")
         return value
 
 
