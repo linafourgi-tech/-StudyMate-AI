@@ -76,6 +76,39 @@
      `.env.example`, the affected tests and the docs. OpenAI's default and
      default provider (`gpt-4o-mini`, `openai`) were not changed.
 
+6. **Shared configuration review and edits, at the student's request (2026-11-17).**
+   - Reviewed `.gitignore`, `requirements.txt` and `pyproject.toml` read-only,
+     then, as the student asked, applied the proposed changes on a separate
+     branch for team review:
+     - declared `httpx2>=2.12,<3`, which `src/gemini_backend.py` imports directly;
+     - labelled the shared test dependencies and marked where other roles add theirs;
+     - set pytest to `--import-mode=importlib`;
+     - added credential-file and OS-file ignore patterns.
+   - Excluded `gemini_models.txt` locally through `.git/info/exclude`.
+   - Teammates' components and `README.md` were not changed.
+
+7. **Integration review and hardening (G1, G2, G4), at the student's request (2026-11-17).**
+   - Did a read-only integration-readiness review, wrote an integration guide,
+     and listed gaps G1–G5. Each gap was reproduced offline before being reported.
+   - **G1:** JSON-mode grounding rules whose not-covered fallback is a JSON
+     object. `generate_structured` raises the new `LLMNotInMaterialError` (a
+     subclass of `LLMResponseError`) without re-asking, or returns the fallback
+     as data when the schema has a `not_in_material` field.
+   - **G2:** `prepare_grounded_request` and `build_lecture_context` report which
+     chunks were included, omitted or truncated. They can raise on overflow,
+     and reject chunk IDs that become identical after sanitising. Dropping is
+     now logged. `extract_citations` and `validate_citations` were added in the
+     new `src/grounding.py`.
+   - **G4:** `is_not_in_material(text)`.
+   - Existing functions keep their signatures. Text-mode prompts were checked
+     to be byte-for-byte identical to `main`; JSON-mode prompts differ only by
+     the new rule block.
+   - Added 65 tests in `tests/test_grounding.py`. Mutation-checked that the key
+     tests fail when the G1 detection or JSON rules are disabled, or when
+     detection becomes a naive substring check.
+   - G3 (metrics from `generate_structured`) and G5 (conversation history)
+     were not implemented.
+
 ## What the student did
 - Defined the requirements, scope and constraints (role boundaries, security, Git rules).
 - Requested the audit and decided which findings to fix.
@@ -88,7 +121,7 @@
   code, and note any changes made afterwards.
 
 ## Verification
-- Automated tests: **170 passed** (offline: mocks plus the real SDKs over
+- Automated tests: **235 passed** (170 earlier + 65 for G1/G2/G4; offline: mocks plus the real SDKs over
   in-memory transports), re-run on 2026-11-17 with outbound socket connections
   blocked. Python 3.12.10, pytest 9.2.0, openai 3.51.0, google-genai 3.3.0.
   `pip check`: no broken requirements.
@@ -102,11 +135,25 @@
   | "What does pop do on a stack?" | 200 OK | 2553 ms | 410 | 1 | Answered from the lecture, citing `[c1]` |
   | "What is a binary heap?" (not in the material) | 200 OK | 1015 ms | 281 | 1 | "This is not covered in the provided lecture material." |
 
-  Covered by this run: text generation only. Not yet verified live: JSON mode
-  (`generate_structured`), `GEMINI_THINKING_LEVEL`, and live error responses.
+  Covered by this run: text generation only.
+- Live Gemini structured output (G1): **passed** on 2026-11-17. At the
+  student's request, **the AI ran this check itself**, using the student's
+  local `.env` (the key was never printed). It used a temporary, untracked
+  script outside the repository, with retries and re-asks turned off for that
+  run only, and made **exactly 2 requests** to `gemini-3.5-flash-lite` (API `v1`):
+
+  | Case | Reply | Result |
+  |---|---|---|
+  | Covered: "What does pop do on a stack?" | Valid JSON `{"answer": "Pop removes the top element from a stack [c1].", "cited_chunks": ["c1"]}` (454 tokens) | Validated `Answer` model; citation `[c1]` valid |
+  | Uncovered: "What is a binary heap?" | Exactly `NOT_IN_MATERIAL_JSON` (437 tokens) | `LLMNotInMaterialError` raised, no re-ask |
+
+  Still not verified live: the opt-in schema path (fallback returned as data),
+  `GEMINI_THINKING_LEVEL`, and live error responses.
 - Earlier live attempt: `gemini-2.5-flash` returned HTTP 404 NOT_FOUND on API
   versions `v1` and `v1beta` although `models.list()` showed it; see
   `docs/LLM_BACKEND.md`.
 - Live OpenAI API: **not yet performed**.
-- The AI made no LLM API calls of any kind (paid or Free Tier). Its only network
+- LLM API calls by the AI: only the **2** Gemini Free Tier requests of the G1
+  structured-output check above, made at the student's request. All other live
+  calls were made by the student. Apart from that check, the AI's only network
   use was reading public Google documentation and forum pages.
