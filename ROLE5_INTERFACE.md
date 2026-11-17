@@ -55,4 +55,4 @@ store.save(profile)
 **simulated** learners (6 quizzes × 5 questions). Label these as simulated in the report.
 Real-user gain: `analytics.weak_topic_gain(profile)` on actual team runs.
 
-Note: add `data/` to `.gitignore` (student profiles should not be committed).
+Profiles are saved to `data/profiles/` (git-ignored). Filenames include a hash of the exact student ID, so similar IDs never collide.

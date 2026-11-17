@@ -279,10 +279,55 @@ class TestStore:
     def test_unsafe_id_sanitised(self, tmp_path):
         path = ProfileStore(tmp_path).save(StudentProfile("../../evil id"))
         assert path.parent == tmp_path
+        assert ".." not in path.name
 
-    def test_empty_id_rejected(self, tmp_path):
+    @pytest.mark.parametrize("bad", ["", "   ", None, 123])
+    def test_invalid_id_rejected(self, tmp_path, bad):
         with pytest.raises(ValueError):
-            ProfileStore(tmp_path).save(StudentProfile("///"))
+            ProfileStore(tmp_path).load(bad)
+
+    def test_symbol_only_id_allowed(self, tmp_path, engine):
+        store = ProfileStore(tmp_path)
+        p = StudentProfile("///")
+        add(engine, p, [("A", 1)])
+        store.save(p)
+        assert store.load("///").to_dict() == p.to_dict()
+
+    # -- regression: profile ID collisions (review on PR #3) --------------- #
+    @pytest.mark.parametrize("a,b", [
+        ("student a", "student_a"),   # space vs underscore
+        ("student/a", "student_a"),   # slash vs underscore
+        ("student.a", "student_a"),   # dot vs underscore
+        ("Student_A", "student_a"),   # case only: same file on Windows/macOS
+        ("öğrenci", "__renci"),       # non-ASCII vs underscores
+        ("_a_", "a"),                 # stripped edges
+    ])
+    def test_similar_ids_get_different_files(self, tmp_path, a, b):
+        store = ProfileStore(tmp_path)
+        assert store._path(a).name.lower() != store._path(b).name.lower()
+
+    def test_similar_ids_do_not_overwrite_each_other(self, tmp_path, engine):
+        store = ProfileStore(tmp_path)
+        p1, p2 = StudentProfile("student a"), StudentProfile("student_a")
+        add(engine, p1, [("Trees", 0)])
+        add(engine, p2, [("Sorting", 1), ("Sorting", 1)])
+        store.save(p1)
+        store.save(p2)
+        assert len(list(tmp_path.glob("*.json"))) == 2
+        assert store.load("student a").to_dict() == p1.to_dict()
+        assert store.load("student_a").to_dict() == p2.to_dict()
+
+    def test_filename_is_stable(self, tmp_path):
+        store = ProfileStore(tmp_path)
+        assert store._path("s1") == store._path("s1")
+
+    def test_load_rejects_file_of_other_student(self, tmp_path):
+        store = ProfileStore(tmp_path)
+        path = store._path("alice")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(StudentProfile("mallory").to_dict()), encoding="utf-8")
+        with pytest.raises(ValueError, match="belongs to"):
+            store.load("alice")
 
 
 # --------------------------------------------------------------- analytics --

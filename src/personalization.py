@@ -13,6 +13,7 @@ is consumed by the quiz generator (Role 3). See ``ROLE5_INTERFACE.md``.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -414,23 +415,43 @@ def _dedupe(topics: list[str]) -> list[str]:
 # Persistence
 # --------------------------------------------------------------------------- #
 class ProfileStore:
-    """Saves one JSON file per student under ``directory`` (default ``data/profiles``)."""
+    """Saves one JSON file per student under ``directory`` (default ``data/profiles``).
+
+    Filenames are ``<readable-part>-<hash>.json``. The readable part is the ID
+    with unsafe characters replaced; the hash is SHA-256 of the exact ID, so
+    IDs that sanitise to the same text ("student a" vs "student_a") or differ
+    only in case ("Student" vs "student", same file on Windows/macOS) never
+    share a file.
+    """
+
+    _HASH_LEN = 16
 
     def __init__(self, directory: str | Path = "data/profiles") -> None:
         self.directory = Path(directory)
 
+    @staticmethod
+    def _validate_id(student_id: str) -> str:
+        if not isinstance(student_id, str) or not student_id.strip():
+            raise ValueError("student_id must be a non-empty string")
+        return student_id
+
     def _path(self, student_id: str) -> Path:
-        safe = re.sub(r"[^A-Za-z0-9_.-]", "_", str(student_id)).strip("._")
-        if not safe:
-            raise ValueError("student_id must contain at least one letter or digit")
-        return self.directory / f"{safe}.json"
+        student_id = self._validate_id(student_id)
+        readable = re.sub(r"[^A-Za-z0-9_-]", "_", student_id).strip("_-")[:40].lower() or "student"
+        digest = hashlib.sha256(student_id.encode("utf-8")).hexdigest()[: self._HASH_LEN]
+        return self.directory / f"{readable}-{digest}.json"
 
     def load(self, student_id: str) -> StudentProfile:
         path = self._path(student_id)
         if not path.exists():
             return StudentProfile(student_id=student_id)
         with path.open(encoding="utf-8") as f:
-            return StudentProfile.from_dict(json.load(f))
+            profile = StudentProfile.from_dict(json.load(f))
+        if profile.student_id != student_id:  # defence in depth against collisions
+            raise ValueError(
+                f"Profile file {path.name} belongs to {profile.student_id!r}, not {student_id!r}"
+            )
+        return profile
 
     def save(self, profile: StudentProfile) -> Path:
         path = self._path(profile.student_id)
