@@ -1,0 +1,12 @@
+[project]
+name = "studymate-ai"
+version = "0.1.0"
+description = "SWE015 - Personalized AI Tutor"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# importlib mode: test files with the same name in different tests/ subfolders
+# do not clash, and no __init__.py files are needed. Keep all tests under tests/.
+addopts = "--import-mode=importlib"

@@ -218,3 +218,22 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# StudyMate AI: never commit secrets (keep the template)
+.env.*
+!.env.example
+
+# StudyMate AI: credential files (never commit)
+*.pem
+*.key
+id_rsa*
+credentials*.json
+client_secret*.json
+service-account*.json
+token.json
+secrets.json
+
+# StudyMate AI: operating-system files
+.DS_Store
+Thumbs.db
+desktop.ini
