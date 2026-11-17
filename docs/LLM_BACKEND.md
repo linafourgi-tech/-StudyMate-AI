@@ -19,9 +19,12 @@ Teammates' code is identical for both providers: same functions, same
 ```
 quiz / evaluation / personalization / frontend
         │  build_grounded_request(...) -> LLMRequest
+        │  prepare_grounded_request(...) -> GroundedRequest (request + LectureContext)
         ▼
-src/prompts.py      grounding rules, lecture-context formatting, input sanitising (no API calls)
-src/schemas.py      Pydantic contracts: LectureChunk, LLMRequest, LLMResponse, TokenUsage
+src/prompts.py      grounding rules (text + JSON), lecture-context building, input sanitising (no API calls)
+src/grounding.py    answer helpers: is_not_in_material, extract_citations, validate_citations (no API calls)
+src/schemas.py      Pydantic contracts: LectureChunk, LLMRequest, LLMResponse, TokenUsage,
+                    LectureContext, GroundedRequest, CitationReport
 src/llm_service.py  LLMService: time budget, retries, validation, structured output
                     + _OpenAIBackend (OpenAI call, error mapping, response parsing)
 src/gemini_backend.py GeminiBackend (Gemini call, error mapping, response parsing)
@@ -95,6 +98,61 @@ request = build_grounded_request("...", chunks, "...", response_format="json")
 result = get_llm_service().generate_structured(request, MyOutput)   # -> MyOutput
 ```
 
+### Not-covered answers, included chunks and citations
+
+```python
+from src.grounding import is_not_in_material, validate_citations
+from src.llm_service import get_llm_service, LLMNotInMaterialError
+from src.prompts import prepare_grounded_request
+
+# Text mode: detect the fallback in the frontend (don't compare strings yourself)
+prepared = prepare_grounded_request("Explain the concept.", chunks, "What is a heap?")
+answer = get_llm_service().generate(prepared.request).content
+if is_not_in_material(answer):
+    ...  # show "not in your lecture" UI
+else:
+    report = validate_citations(answer, prepared.context)
+    report.valid      # original chunk_ids that were cited and actually sent
+    report.unknown    # cited IDs that were NOT sent (omitted, typo or invented)
+    report.all_valid  # at least one citation, and all of them were sent
+
+prepared.context.included_ids   # chunks really in the prompt, in order
+prepared.context.omitted_ids    # chunks dropped by the character budget
+prepared.context.is_complete    # False if anything was dropped or truncated
+
+# Structured mode: the not-covered fallback is a JSON object, not plain text
+try:
+    quiz = get_llm_service().generate_structured(
+        prepare_grounded_request("Write 5 questions.", chunks, "heaps",
+                                 response_format="json").request, Quiz)
+except LLMNotInMaterialError:
+    ...  # topic not in the lecture: no second request is made
+```
+
+- **JSON mode** (`response_format="json"`) uses `GROUNDING_RULES_JSON`. Their
+  fallback is the JSON object `NOT_IN_MATERIAL_JSON`
+  (`{"not_in_material": true, "message": "This is not covered in the provided lecture material."}`),
+  so a not-covered reply is still valid JSON. Text mode is unchanged.
+- `generate_structured` raises **`LLMNotInMaterialError`** (a subclass of
+  `LLMResponseError`) when the model returns the fallback, either as JSON or
+  as the plain phrase. It does not re-ask. To receive the fallback **as data**
+  instead, add `not_in_material: bool = False` to your schema and give the
+  other fields defaults; you then get an instance with `not_in_material=True`.
+  A schema with other required fields still gets the exception.
+- **`is_not_in_material(text)`** accepts the phrase with formatting
+  differences (case, whitespace, quotes, Markdown, a trailing `[c1]`, a code
+  fence) and the JSON object. It returns **False** when the phrase appears
+  inside a longer answer, so partial answers are never hidden.
+- **Context budget.** Chunks that don't fit `max_context_chars` (12,000 by
+  default) are still dropped, but now with a logged warning (IDs only, never
+  lecture text). They're also listed in `context.omitted_ids`. Pass
+  `on_overflow="error"` to get `LectureContextOverflowError` (a `ValueError`)
+  instead.
+- **Chunk IDs** must stay unique after sanitising (`"a b"` and `"a_b"` would
+  both become `[a_b]`). `prepare_grounded_request` and `build_lecture_context`
+  raise `ValueError` for such duplicates. The older `build_grounded_request`
+  and `format_lecture_context` keep their previous lenient behaviour.
+
 | Interface | Purpose |
 |---|---|
 | `LectureChunk(chunk_id, text, source?, page?)` | Input format expected from PDF processing. Use IDs made of `A-Z a-z 0-9 _ . : -`; any other character is replaced with `_` in the prompt (and therefore in citations). |
@@ -105,10 +163,16 @@ result = get_llm_service().generate_structured(request, MyOutput)   # -> MyOutpu
 | `LLMService.generate_text(system, user, **opts)` | Returns `str` |
 | `LLMService.generate_structured(request, Model)` | Returns validated `Model` instance |
 | `build_grounded_request(task, chunks, user_input, ...)` | Lecture-grounded `LLMRequest` |
+| `prepare_grounded_request(task, chunks, user_input, ..., on_overflow="drop"\|"error")` | Same request, plus the `LectureContext` showing which chunks were sent (`GroundedRequest`) |
 | `format_lecture_context(chunks, max_chars)` | Delimited, sanitised lecture block |
+| `build_lecture_context(chunks, max_chars, on_overflow=...)` | The same block as a `LectureContext` (`text`, `included_ids`, `omitted_ids`, `truncated`, `is_complete`, `prompt_ids`) |
 | `neutralize_delimiters(text)` | Sanitiser for any other untrusted text a teammate puts into a prompt |
 | `build_tutor_question_request(question, chunks)` | Ready-made tutor Q&A request |
 | `NOT_IN_MATERIAL` | Exact phrase the model uses when the answer isn't in the lecture |
+| `NOT_IN_MATERIAL_JSON` | The JSON-mode equivalent: `{"not_in_material": true, "message": ...}` |
+| `src.grounding.is_not_in_material(text)` | True if an answer is the not-covered fallback (text or JSON) |
+| `src.grounding.extract_citations(text)` | `[id]` citations in an answer, unique, in order |
+| `src.grounding.validate_citations(text, context)` | `CitationReport(cited, valid, unknown, has_citations, all_valid)` |
 
 Task-specific prompts (quiz generation, answer evaluation, and so on) belong to
 the components that own them. They pass their own `task_instructions` and reuse
@@ -123,12 +187,16 @@ LLMServiceError                      .status_code, .request_id (safe diagnostics
 ├── LLMAuthenticationError   bad/missing key, 401/403          (not retried)
 ├── LLMRequestError          400/404/422, quota exhausted      (not retried)
 ├── LLMResponseError         empty, refused, filtered, truncated JSON, schema mismatch
+│   └── LLMNotInMaterialError   structured output: material doesn't cover the request (not re-asked)
 └── LLMTransientError        raised after retries or the time budget are used up
     ├── LLMTimeoutError
     ├── LLMConnectionError
     ├── LLMRateLimitError    429
     └── LLMUnavailableError  5xx / 408 / 409
 ConfigurationError (src.config)  missing/invalid environment settings
+ValueError                       invalid input when *building* a request: no chunks, blank text,
+                                 duplicate chunk IDs, LectureContextOverflowError (on_overflow="error"),
+                                 pydantic ValidationError (e.g. page=0). Not an LLMServiceError.
 ```
 
 The frontend can catch `LLMTransientError` and show "please try again", and
@@ -185,8 +253,10 @@ the field, never echoing the value.
    up to `LLM_VALIDATION_RETRIES` times.
 7. **Lecture grounding.** The system prompt tells the model to answer only from
    the delimited lecture material, to cite chunk IDs, and to use a fixed phrase
-   when the answer isn't covered. A character budget bounds prompt size by
-   dropping whole chunks.
+   when the answer isn't covered. In JSON mode the fallback is a JSON object,
+   so it stays valid structured output. A character budget bounds prompt size
+   by dropping whole chunks. Dropping is logged and reported in
+   `LectureContext`, and can be made an error.
 8. **Dependency injection** of the client, `sleep`, clock and RNG makes all
    tests offline, deterministic and fast (no real waiting, no network).
 
@@ -225,9 +295,19 @@ test once.
 
 This confirms the real SDK call path, authentication, the request mapping, the
 response parsing, and grounding behaviour (citation and the not-covered phrase)
-for this model. It does not cover JSON mode (`generate_structured`),
-`GEMINI_THINKING_LEVEL`, or live error responses (429, 5xx), which remain
-tested offline only.
+for this model.
+
+**Live structured-output check (G1, 2026-11-17, 2 requests, retries and
+re-asks off).** `generate_structured` with `gemini-3.5-flash-lite`, API `v1`:
+
+| Case | Model reply | Result |
+|---|---|---|
+| Covered ("What does pop do on a stack?") | Valid JSON `{"answer": "Pop removes the top element from a stack [c1].", "cited_chunks": ["c1"]}` | Validated Pydantic model; `validate_citations`: `[c1]` valid |
+| Uncovered ("What is a binary heap?") | Exactly `{"not_in_material": true, "message": "This is not covered in the provided lecture material."}` | `LLMNotInMaterialError`, no re-ask |
+
+Still tested offline only: the opt-in schema path (fallback returned as
+data), `GEMINI_THINKING_LEVEL`, and live error responses (429, 5xx). One
+sample per case shows the mechanism works, not how often the model follows it.
 
 **API version.** google-genai 3.x defaults the Gemini Developer API to `v1`
 (2.x used `v1beta`). The `GOOGLE_GENAI_API_VERSION` environment variable

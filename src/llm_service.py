@@ -37,6 +37,8 @@ import openai
 from pydantic import BaseModel, ValidationError
 
 from .config import ConfigurationError, Settings, load_settings
+from .grounding import is_not_in_material
+from .prompts import NOT_IN_MATERIAL, NOT_IN_MATERIAL_JSON, NOT_IN_MATERIAL_KEY
 from .schemas import LLMRequest, LLMResponse, TokenUsage
 
 logger = logging.getLogger(__name__)
@@ -47,6 +49,7 @@ __all__ = [
     "ConfigurationError",
     "LLMAuthenticationError",
     "LLMConnectionError",
+    "LLMNotInMaterialError",
     "LLMRateLimitError",
     "LLMRequestError",
     "LLMResponseError",
@@ -88,6 +91,15 @@ class LLMRequestError(LLMServiceError):
 
 class LLMResponseError(LLMServiceError):
     """The model returned an empty, truncated, filtered, refused or invalid response."""
+
+
+class LLMNotInMaterialError(LLMResponseError):
+    """Structured output: the model reported that the lecture material does not cover
+    the request (the not-covered fallback), so there is no output to validate.
+
+    A subclass of ``LLMResponseError``, so existing handlers keep working. Not
+    re-asked: asking again would use another request for the same answer.
+    """
 
 
 class LLMTransientError(LLMServiceError):
@@ -349,27 +361,41 @@ class LLMService:
         request is repeated up to ``settings.validation_retries`` extra times.
         All attempts share one ``total_timeout_seconds`` budget.
 
+        Not-covered fallback (grounded requests): if the model answers with the
+        not-covered fallback (``NOT_IN_MATERIAL_JSON`` or the plain phrase),
+        ``LLMNotInMaterialError`` is raised at once, without a re-ask. To get it
+        as data instead, give ``output_model`` a field
+        ``not_in_material: bool = False`` and defaults for its other fields; the
+        fallback is then returned as an instance with ``not_in_material=True``.
+
         Raises:
+            LLMNotInMaterialError: the material does not cover the request.
             LLMResponseError: if no valid output is produced.
             (plus every error that ``generate`` can raise)
         """
         schema = json.dumps(output_model.model_json_schema(), ensure_ascii=False)
+        system_prompt = (
+            f"{request.system_prompt}\n\nRespond with a single JSON object only, "
+            f"no extra text, that conforms to this JSON Schema:\n{schema}"
+        )
+        if NOT_IN_MATERIAL in request.system_prompt:  # grounded: allow the JSON fallback
+            system_prompt += (
+                "\nException: if the lecture material does not cover the request, respond "
+                f"with exactly this JSON object instead: {NOT_IN_MATERIAL_JSON}"
+            )
         structured_request = request.model_copy(
-            update={
-                "response_format": "json",
-                "system_prompt": (
-                    f"{request.system_prompt}\n\nRespond with a single JSON object only, "
-                    f"no extra text, that conforms to this JSON Schema:\n{schema}"
-                ),
-            }
+            update={"response_format": "json", "system_prompt": system_prompt}
         )
 
         deadline = self._clock() + self.settings.total_timeout_seconds
         last_error: ValidationError | None = None
         for attempt in range(1, self.settings.validation_retries + 2):
             response = self._generate(structured_request, deadline)
+            content = _strip_code_fence(response.content)
+            if is_not_in_material(content):
+                return self._not_in_material_result(content, output_model)
             try:
-                return output_model.model_validate_json(_strip_code_fence(response.content))
+                return output_model.model_validate_json(content)
             except ValidationError as exc:
                 last_error = exc
                 logger.warning(
@@ -386,6 +412,23 @@ class LLMService:
     # ------------------------------------------------------------------ #
     # Internals
     # ------------------------------------------------------------------ #
+    @staticmethod
+    def _not_in_material_result(content: str, output_model: type[T]) -> T:
+        """Return the fallback as data if the schema opts in, else raise."""
+        if NOT_IN_MATERIAL_KEY in output_model.model_fields:
+            try:
+                payload = json.loads(content)
+            except ValueError:  # plain-text phrase
+                payload = None
+            if not isinstance(payload, dict):
+                payload = {NOT_IN_MATERIAL_KEY: True, "message": NOT_IN_MATERIAL}
+            try:
+                return output_model.model_validate(payload)
+            except ValidationError:
+                pass  # schema has required fields the fallback cannot fill
+        logger.info("Structured output: lecture material does not cover the request")
+        raise LLMNotInMaterialError("The lecture material does not cover this request.")
+
     def _generate(self, request: LLMRequest, deadline: float) -> LLMResponse:
         max_attempts = self.settings.max_retries + 1
 
