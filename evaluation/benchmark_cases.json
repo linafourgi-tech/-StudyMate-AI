@@ -1,0 +1,62 @@
+[
+  {
+    "case_id": "bio_01", "topic": "Biology", "covered": true,
+    "lecture_text": "Photosynthesis converts light energy into chemical energy stored in glucose. The process occurs mainly in chloroplasts.",
+    "fact_subject": "Where photosynthesis occurs", "fact_relation": "choose the correct location",
+    "correct_answer": "Chloroplasts", "distractors": ["Ribosomes", "Nucleus", "Lysosomes"]
+  },
+  {
+    "case_id": "bio_02", "topic": "Biology", "covered": true,
+    "lecture_text": "Mitosis produces two genetically identical daughter cells from one parent cell.",
+    "fact_subject": "Number of daughter cells produced in mitosis", "fact_relation": "choose the correct number",
+    "correct_answer": "Two", "distractors": ["One", "Three", "Four"]
+  },
+  {
+    "case_id": "stats_01", "topic": "Statistics", "covered": true,
+    "lecture_text": "The median is the middle value after arranging numbers in ascending order. For an odd number of observations, it is the central value.",
+    "fact_subject": "Definition of the median", "fact_relation": "choose the correct definition",
+    "correct_answer": "The middle value in ordered data", "distractors": ["The largest value", "The arithmetic sum", "The most frequent value"]
+  },
+  {
+    "case_id": "stats_02", "topic": "Statistics", "covered": true,
+    "lecture_text": "A p-value below the chosen alpha level provides evidence to reject the null hypothesis.",
+    "fact_subject": "Decision when the p-value is below alpha", "fact_relation": "choose the statistical decision",
+    "correct_answer": "Reject the null hypothesis", "distractors": ["Accept the null hypothesis as proven", "Increase sample size automatically", "Ignore the result"]
+  },
+  {
+    "case_id": "cs_01", "topic": "Computer Science", "covered": true,
+    "lecture_text": "Binary search requires a sorted sequence and repeatedly halves the search interval.",
+    "fact_subject": "Prerequisite for binary search", "fact_relation": "choose the required condition",
+    "correct_answer": "The sequence is sorted", "distractors": ["The sequence is unsorted", "The sequence contains only one item", "The sequence contains only strings"]
+  },
+  {
+    "case_id": "cs_02", "topic": "Computer Science", "covered": true,
+    "lecture_text": "In a relational database, a primary key uniquely identifies each row in a table.",
+    "fact_subject": "Primary key in a relational database", "fact_relation": "choose its main purpose",
+    "correct_answer": "Uniquely identify a row", "distractors": ["Sort data alphabetically", "Encrypt the table", "Delete duplicate tables"]
+  },
+  {
+    "case_id": "med_01", "topic": "Health Science", "covered": true,
+    "lecture_text": "The heart has four chambers: two atria and two ventricles.",
+    "fact_subject": "Number of chambers of the human heart", "fact_relation": "choose the correct count",
+    "correct_answer": "Four", "distractors": ["Two", "Three", "Five"]
+  },
+  {
+    "case_id": "med_02", "topic": "Health Science", "covered": true,
+    "lecture_text": "The kidneys filter blood, remove waste products, and help maintain fluid and electrolyte balance.",
+    "fact_subject": "One function of the kidneys", "fact_relation": "choose the correct function",
+    "correct_answer": "Filter blood and remove waste", "distractors": ["Pump blood through arteries", "Exchange oxygen in alveoli", "Produce digestive bile"]
+  },
+  {
+    "case_id": "edge_01", "topic": "Missing information", "covered": false,
+    "lecture_text": "The lecture explains photosynthesis and chloroplasts but says nothing about the year of invention of the telephone.",
+    "fact_subject": "Year the telephone was invented", "fact_relation": "choose the year",
+    "correct_answer": "1876", "distractors": ["1750", "1901", "2000"]
+  },
+  {
+    "case_id": "edge_02", "topic": "Missing information", "covered": false,
+    "lecture_text": "The lecture describes median and p-values. It does not mention the capital city of Canada.",
+    "fact_subject": "Capital city of Canada", "fact_relation": "choose the capital",
+    "correct_answer": "Ottawa", "distractors": ["Toronto", "Montreal", "Vancouver"]
+  }
+]
