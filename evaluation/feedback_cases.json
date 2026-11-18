@@ -1,0 +1,32 @@
+[
+  {
+    "case_id": "feedback_01", "topic": "Biology", "question": "Where does photosynthesis mainly occur?",
+    "correct_answer": "Chloroplasts", "student_answer": "Chloroplasts", "reference_score": 1.0,
+    "expected_explanation_facts": "Photosynthesis mainly occurs in chloroplasts.", "evaluation_status": "reference case only; no model output graded"
+  },
+  {
+    "case_id": "feedback_02", "topic": "Biology", "question": "Where does photosynthesis mainly occur?",
+    "correct_answer": "Chloroplasts", "student_answer": "Nucleus", "reference_score": 0.0,
+    "expected_explanation_facts": "Chloroplasts, not the nucleus, are the main location of photosynthesis.", "evaluation_status": "reference case only; no model output graded"
+  },
+  {
+    "case_id": "feedback_03", "topic": "Computer Science", "question": "What condition is needed for binary search?",
+    "correct_answer": "Sorted sequence", "student_answer": "Sorted sequence", "reference_score": 1.0,
+    "expected_explanation_facts": "Binary search assumes that the data is sorted.", "evaluation_status": "reference case only; no model output graded"
+  },
+  {
+    "case_id": "feedback_04", "topic": "Computer Science", "question": "What condition is needed for binary search?",
+    "correct_answer": "Sorted sequence", "student_answer": "Unsorted sequence", "reference_score": 0.0,
+    "expected_explanation_facts": "The sequence needs to be sorted before binary search is used.", "evaluation_status": "reference case only; no model output graded"
+  },
+  {
+    "case_id": "feedback_05", "topic": "Statistics", "question": "What do we generally do when p-value is below alpha?",
+    "correct_answer": "Reject H0", "student_answer": "Reject H0", "reference_score": 1.0,
+    "expected_explanation_facts": "A p-value below alpha supports rejecting the null hypothesis.", "evaluation_status": "reference case only; no model output graded"
+  },
+  {
+    "case_id": "feedback_06", "topic": "Statistics", "question": "What do we generally do when p-value is below alpha?",
+    "correct_answer": "Reject H0", "student_answer": "Accept H0 as proven", "reference_score": 0.0,
+    "expected_explanation_facts": "A p-value below alpha supports rejecting, not proving, the null hypothesis.", "evaluation_status": "reference case only; no model output graded"
+  }
+]

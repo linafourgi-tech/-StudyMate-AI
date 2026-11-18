@@ -1,0 +1,286 @@
+{
+  "date_utc": "2026-11-17T21:01:41+00:00",
+  "mode": "baseline",
+  "dataset": "synthetic hand-authored teaching fixtures, NOT final real lecture data",
+  "number_of_cases": 10,
+  "records": [
+    {
+      "case_id": "bio_01",
+      "method": "annotated_template_baseline",
+      "model": null,
+      "latency_ms": 0.10359997395426035,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "estimated_cost_usd": null,
+      "attempts": 0,
+      "output": {
+        "question": "Where photosynthesis occurs - choose the correct location?",
+        "options": {
+          "A": "Ribosomes",
+          "B": "Nucleus",
+          "C": "Lysosomes",
+          "D": "Chloroplasts"
+        },
+        "correct_option": "D",
+        "status": "ok",
+        "source_case_id": "bio_01"
+      },
+      "structurally_valid": true,
+      "correct_refusal": null,
+      "question_quality_pct": null,
+      "feedback_quality_pct": null,
+      "answer_correct": null
+    },
+    {
+      "case_id": "bio_02",
+      "method": "annotated_template_baseline",
+      "model": null,
+      "latency_ms": 0.030499999411404133,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "estimated_cost_usd": null,
+      "attempts": 0,
+      "output": {
+        "question": "Number of daughter cells produced in mitosis - choose the correct number?",
+        "options": {
+          "A": "One",
+          "B": "Two",
+          "C": "Three",
+          "D": "Four"
+        },
+        "correct_option": "B",
+        "status": "ok",
+        "source_case_id": "bio_02"
+      },
+      "structurally_valid": true,
+      "correct_refusal": null,
+      "question_quality_pct": null,
+      "feedback_quality_pct": null,
+      "answer_correct": null
+    },
+    {
+      "case_id": "stats_01",
+      "method": "annotated_template_baseline",
+      "model": null,
+      "latency_ms": 0.02259993925690651,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "estimated_cost_usd": null,
+      "attempts": 0,
+      "output": {
+        "question": "Definition of the median - choose the correct definition?",
+        "options": {
+          "A": "The middle value in ordered data",
+          "B": "The largest value",
+          "C": "The arithmetic sum",
+          "D": "The most frequent value"
+        },
+        "correct_option": "A",
+        "status": "ok",
+        "source_case_id": "stats_01"
+      },
+      "structurally_valid": true,
+      "correct_refusal": null,
+      "question_quality_pct": null,
+      "feedback_quality_pct": null,
+      "answer_correct": null
+    },
+    {
+      "case_id": "stats_02",
+      "method": "annotated_template_baseline",
+      "model": null,
+      "latency_ms": 0.01950003206729889,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "estimated_cost_usd": null,
+      "attempts": 0,
+      "output": {
+        "question": "Decision when the p-value is below alpha - choose the statistical decision?",
+        "options": {
+          "A": "Reject the null hypothesis",
+          "B": "Accept the null hypothesis as proven",
+          "C": "Increase sample size automatically",
+          "D": "Ignore the result"
+        },
+        "correct_option": "A",
+        "status": "ok",
+        "source_case_id": "stats_02"
+      },
+      "structurally_valid": true,
+      "correct_refusal": null,
+      "question_quality_pct": null,
+      "feedback_quality_pct": null,
+      "answer_correct": null
+    },
+    {
+      "case_id": "cs_01",
+      "method": "annotated_template_baseline",
+      "model": null,
+      "latency_ms": 0.0315000070258975,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "estimated_cost_usd": null,
+      "attempts": 0,
+      "output": {
+        "question": "Prerequisite for binary search - choose the required condition?",
+        "options": {
+          "A": "The sequence is sorted",
+          "B": "The sequence is unsorted",
+          "C": "The sequence contains only one item",
+          "D": "The sequence contains only strings"
+        },
+        "correct_option": "A",
+        "status": "ok",
+        "source_case_id": "cs_01"
+      },
+      "structurally_valid": true,
+      "correct_refusal": null,
+      "question_quality_pct": null,
+      "feedback_quality_pct": null,
+      "answer_correct": null
+    },
+    {
+      "case_id": "cs_02",
+      "method": "annotated_template_baseline",
+      "model": null,
+      "latency_ms": 0.02759997732937336,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "estimated_cost_usd": null,
+      "attempts": 0,
+      "output": {
+        "question": "Primary key in a relational database - choose its main purpose?",
+        "options": {
+          "A": "Uniquely identify a row",
+          "B": "Sort data alphabetically",
+          "C": "Encrypt the table",
+          "D": "Delete duplicate tables"
+        },
+        "correct_option": "A",
+        "status": "ok",
+        "source_case_id": "cs_02"
+      },
+      "structurally_valid": true,
+      "correct_refusal": null,
+      "question_quality_pct": null,
+      "feedback_quality_pct": null,
+      "answer_correct": null
+    },
+    {
+      "case_id": "med_01",
+      "method": "annotated_template_baseline",
+      "model": null,
+      "latency_ms": 0.018900027498602867,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "estimated_cost_usd": null,
+      "attempts": 0,
+      "output": {
+        "question": "Number of chambers of the human heart - choose the correct count?",
+        "options": {
+          "A": "Two",
+          "B": "Three",
+          "C": "Four",
+          "D": "Five"
+        },
+        "correct_option": "C",
+        "status": "ok",
+        "source_case_id": "med_01"
+      },
+      "structurally_valid": true,
+      "correct_refusal": null,
+      "question_quality_pct": null,
+      "feedback_quality_pct": null,
+      "answer_correct": null
+    },
+    {
+      "case_id": "med_02",
+      "method": "annotated_template_baseline",
+      "model": null,
+      "latency_ms": 0.01780001912266016,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "estimated_cost_usd": null,
+      "attempts": 0,
+      "output": {
+        "question": "One function of the kidneys - choose the correct function?",
+        "options": {
+          "A": "Pump blood through arteries",
+          "B": "Exchange oxygen in alveoli",
+          "C": "Filter blood and remove waste",
+          "D": "Produce digestive bile"
+        },
+        "correct_option": "C",
+        "status": "ok",
+        "source_case_id": "med_02"
+      },
+      "structurally_valid": true,
+      "correct_refusal": null,
+      "question_quality_pct": null,
+      "feedback_quality_pct": null,
+      "answer_correct": null
+    },
+    {
+      "case_id": "edge_01",
+      "method": "annotated_template_baseline",
+      "model": null,
+      "latency_ms": 0.014999997802078724,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "estimated_cost_usd": null,
+      "attempts": 0,
+      "output": {
+        "question": null,
+        "options": [],
+        "correct_option": null,
+        "status": "not_covered",
+        "source_case_id": "edge_01"
+      },
+      "structurally_valid": null,
+      "correct_refusal": true,
+      "question_quality_pct": null,
+      "feedback_quality_pct": null,
+      "answer_correct": null
+    },
+    {
+      "case_id": "edge_02",
+      "method": "annotated_template_baseline",
+      "model": null,
+      "latency_ms": 0.015300000086426735,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "estimated_cost_usd": null,
+      "attempts": 0,
+      "output": {
+        "question": null,
+        "options": [],
+        "correct_option": null,
+        "status": "not_covered",
+        "source_case_id": "edge_02"
+      },
+      "structurally_valid": null,
+      "correct_refusal": true,
+      "question_quality_pct": null,
+      "feedback_quality_pct": null,
+      "answer_correct": null
+    }
+  ],
+  "summary": [
+    {
+      "method": "annotated_template_baseline",
+      "cases": 10,
+      "latency_mean_ms": 0.030229997355490923,
+      "latency_median_ms": 0.0210499856621027,
+      "accuracy_pct": null,
+      "accuracy_evaluated_cases": 0,
+      "mcq_format_valid_pct": 100.0,
+      "mcq_cases_checked": 8,
+      "unsupported_refusal_accuracy_pct": 100.0,
+      "refusal_cases_checked": 2,
+      "question_quality_pct": null,
+      "feedback_quality_pct": null,
+      "estimated_cost_mean_usd": null,
+      "priced_cases": 0
+    }
+  ]
+}
