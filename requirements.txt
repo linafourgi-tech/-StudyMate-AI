@@ -10,3 +10,7 @@ pytest>=9.2
 
 # Other roles: add your dependencies in your own section below,
 # e.g. "# PDF Processing (Role N)", one package per line with a version range.
+
+# Streamlit workspace and PDF ingestion adapter (Role 6)
+streamlit>=1.67,<2
+PyMuPDF>=1.25,<2
