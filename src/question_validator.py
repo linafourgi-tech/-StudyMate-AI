@@ -31,8 +31,10 @@ def validate_quiz(
     quiz: Any,
     plan: Any,
     context: LectureContext,
+    *,
+    expected_short_answer_count: int | None = None,
 ) -> list[QuizValidationIssue]:
-    """Check plan counts, IDs, MCQ structure, and citations against supplied chunks."""
+    """Check plan counts, question structure, and citations against supplied chunks."""
     issues: list[QuizValidationIssue] = []
     questions = list(getattr(quiz, "questions", ()))
     allocation = dict(plan.topic_allocation)
@@ -52,6 +54,13 @@ def validate_quiz(
         issues.append(QuizValidationIssue(
             "topic_allocation",
             f"Question counts by topic {dict(counts)} do not match the plan {allocation}.",
+        ))
+
+    short_count = sum(1 for q in questions if q.question_type == "short")
+    if expected_short_answer_count is not None and short_count != expected_short_answer_count:
+        issues.append(QuizValidationIssue(
+            "short_answer_count",
+            f"Expected {expected_short_answer_count} short-answer questions; got {short_count}.",
         ))
 
     seen_ids: set[str] = set()
@@ -74,23 +83,28 @@ def validate_quiz(
             issues.append(QuizValidationIssue(
                 "wrong_difficulty", f"Question difficulty must be {difficulty!r}.", question_id,
             ))
-        if q.question_type != "mcq":
+        if q.question_type not in {"mcq", "short"}:
             issues.append(QuizValidationIssue(
-                "unsupported_question_type", "Question type must be 'mcq'.", question_id,
+                "unsupported_question_type", "Question type must be 'mcq' or 'short'.", question_id,
             ))
 
         options = [str(option).strip() for option in q.options]
-        if len(options) != 4 or any(not option for option in options):
+        if q.question_type == "mcq":
+            if len(options) != 4 or any(not option for option in options):
+                issues.append(QuizValidationIssue(
+                    "invalid_options", "Each MCQ needs exactly four non-empty options.", question_id,
+                ))
+            if len({option.casefold() for option in options}) != len(options):
+                issues.append(QuizValidationIssue(
+                    "duplicate_options", "MCQ options must be distinct.", question_id,
+                ))
+            if str(q.correct_answer).strip().casefold() not in {o.casefold() for o in options}:
+                issues.append(QuizValidationIssue(
+                    "answer_not_option", "Correct answer must exactly match one option.", question_id,
+                ))
+        elif q.question_type == "short" and options:
             issues.append(QuizValidationIssue(
-                "invalid_options", "Each MCQ needs exactly four non-empty options.", question_id,
-            ))
-        if len({option.casefold() for option in options}) != len(options):
-            issues.append(QuizValidationIssue(
-                "duplicate_options", "MCQ options must be distinct.", question_id,
-            ))
-        if str(q.correct_answer).strip().casefold() not in {o.casefold() for o in options}:
-            issues.append(QuizValidationIssue(
-                "answer_not_option", "Correct answer must exactly match one option.", question_id,
+                "short_answer_has_options", "Short-answer questions must not include options.", question_id,
             ))
 
         cited_chunks = list(q.cited_chunks)
