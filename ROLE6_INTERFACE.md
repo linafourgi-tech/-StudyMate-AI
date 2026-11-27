@@ -23,4 +23,4 @@ Role 6 connects the team's backend to four student-facing screens. Students can 
 
 ## AI assistance
 
-OpenAI Codex assisted with the frontend code, integration tests, documentation, and browser verification. OpenAI ImageGen created the lecture header image.
+My role was to connect the team’s backend modules into one Streamlit app. I used OpenAI Codex as a coding assistant for the integration, setup notes, and testing with pytest and Chrome. I used OpenAI ImageGen for the lecture header image.
