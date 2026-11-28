@@ -33,17 +33,27 @@ def _meaningful_tokens(value: str) -> set[str]:
 
 
 def _evidence_is_cited_quote(evidence: str, cited_ids: set[str], context: LectureContext) -> bool:
-    """Require evidence to occur verbatim (apart from case/spacing) in a cited chunk."""
-    quote = _normalise_text(evidence)
-    if not quote:
+    """Require evidence words, in order, to occur in a cited chunk.
+
+    PDF extraction and model quoting can differ in punctuation, line wrapping,
+    or hyphenation. Comparing the ordered words keeps provenance strict while
+    avoiding failures caused by those formatting differences.
+    """
+    quote_words = re.findall(r"[a-z0-9]+", _normalise_text(evidence))
+    if len(quote_words) < 2:
         return False
     included_by_id = {chunk.chunk_id: chunk for chunk in context.included}
     original_ids = {context.prompt_ids[cid] for cid in cited_ids if cid in context.prompt_ids}
-    return any(
-        chunk_id in included_by_id
-        and quote in _normalise_text(included_by_id[chunk_id].text)
-        for chunk_id in original_ids
-    )
+
+    def contains_ordered_quote(text: str) -> bool:
+        source_words = re.findall(r"[a-z0-9]+", _normalise_text(text))
+        width = len(quote_words)
+        return any(source_words[index:index + width] == quote_words
+                   for index in range(len(source_words) - width + 1))
+
+    return any(chunk_id in included_by_id
+               and contains_ordered_quote(included_by_id[chunk_id].text)
+               for chunk_id in original_ids)
 
 
 def _answer_has_evidence(answer: str, evidence: str) -> bool:
@@ -249,6 +259,7 @@ def validate_quiz(
                 "citation_mismatch", "Question text citations must match cited_chunks.", question_id,
             ))
 
+        answer_evidence = str(getattr(q, "answer_evidence", "")).strip()
         question_evidence = str(getattr(q, "question_evidence", "")).strip()
         if not question_evidence:
             issues.append(QuizValidationIssue(
@@ -261,10 +272,10 @@ def validate_quiz(
             ))
         elif not (_meaningful_tokens(question_evidence) & _meaningful_tokens(
             re.sub(r"\[[^\]]+\]", " ", str(q.question))
-        )):
+        )) and not _answer_has_evidence(str(q.correct_answer), answer_evidence):
             issues.append(QuizValidationIssue(
                 "question_evidence_mismatch",
-                "Question wording has no meaningful overlap with its cited evidence.", question_id,
+                "Question wording and correct answer are not supported by their cited evidence.", question_id,
             ))
 
         answer_evidence = str(getattr(q, "answer_evidence", "")).strip()
