@@ -115,6 +115,32 @@ def test_valid_mixed_quiz_passes_type_distribution_and_evidence_checks():
     })
 
 
+def test_accepts_supported_paraphrased_question_with_no_shared_content_words():
+    questions = [_question("q1", "Stacks", "mcq"), _question("q2", "Stacks", "short"),
+                 _question("q3", "Queues", "mcq"), _question("q4", "Queues", "short")]
+    questions[0]["question"] = "What happens to the newest element? [stack-p1]"
+    quiz = _quiz(questions=questions)
+
+    issues = validate_quiz(quiz, PLAN, _context(), expected_type_distribution=TYPE_DISTRIBUTION)
+
+    assert not any(issue.code in {"question_evidence_mismatch", "answer_unsupported"}
+                   and issue.question_id == "q1" for issue in issues)
+
+
+def test_accepts_evidence_quote_with_pdf_punctuation_and_line_break_variation():
+    questions = [_question("q1", "Stacks", "mcq"), _question("q2", "Stacks", "short"),
+                 _question("q3", "Queues", "mcq"), _question("q4", "Queues", "short")]
+    questions[0]["question_evidence"] = (
+        "A stack follows LIFO - the last item added is the first item removed"
+    )
+    quiz = _quiz(questions=questions)
+
+    issues = validate_quiz(quiz, PLAN, _context(), expected_type_distribution=TYPE_DISTRIBUTION)
+
+    assert not any(issue.code == "question_evidence_not_cited" and issue.question_id == "q1"
+                   for issue in issues)
+
+
 def test_rejects_wrong_mcq_short_distribution_with_totals_unchanged():
     questions = [
         _question("q1", "Stacks", "mcq"),
@@ -164,6 +190,8 @@ def test_rejects_question_unrelated_to_its_cited_evidence():
     questions = [_question("q1", "Stacks", "mcq"), _question("q2", "Stacks", "short"),
                  _question("q3", "Queues", "mcq"), _question("q4", "Queues", "short")]
     questions[0]["question"] = "Which sorting algorithm uses a pivot? [stack-p1]"
+    questions[0]["correct_answer"] = "pivot"
+    questions[0]["options"] = ["pivot", "FIFO", "Random order", "No order"]
     quiz = _quiz(questions=questions)
 
     issues = validate_quiz(quiz, PLAN, _context(), expected_type_distribution=TYPE_DISTRIBUTION)
